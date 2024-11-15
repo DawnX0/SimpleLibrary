@@ -1,6 +1,7 @@
 import { ContextActionService, ReplicatedStorage, RunService, UserInputService } from "@rbxts/services";
 import Remotes from "../Remotes";
 import { ClientSenderEvent } from "@rbxts/net/out/client/ClientEvent";
+import { ServerListenerEvent } from "@rbxts/net/out/server/ServerEvent";
 
 export type ActionType = {
 	Name: string;
@@ -8,38 +9,37 @@ export type ActionType = {
 	Gesture: Enum.KeyCode | Enum.UserInputType;
 	ClientOnStart?: (player: Player) => void;
 	ClientOnEnd?: (player: Player) => void;
-	ServerOnStart: (player: Player) => void;
+	ServerOnStart?: (player: Player) => void;
 	ServerOnEnd?: (player: Player) => void;
 	TouchButton?: boolean;
-	AdditonalArguments?: { [key: string]: AttributeValue };
 };
 
 const FOLDER_NAME = "Actions";
-const LINK_NAME = "ActionLink";
 
 class Action {
 	ActionRegistry: Map<string, ActionType> = new Map();
-	link?: ClientSenderEvent<[string, ActionType]>;
+	clientLink: ClientSenderEvent<[string, boolean]> = Remotes.Client.Get("ActionLink");
+	serverLink: ServerListenerEvent<[string, boolean]> = Remotes.Server.Get("ActionLink");
 
-	constructor() {}
+	constructor() {
+		this.RegisterActions();
+	}
 
 	RegisterActions() {
-		const actionFolder = ReplicatedStorage.FindFirstChild(FOLDER_NAME, true);
-		if (actionFolder) {
-			this.link = Remotes.Client.Get("ActionLink");
-
-			for (const child of actionFolder.GetChildren()) {
+		const folder = ReplicatedStorage.FindFirstChild(FOLDER_NAME, true);
+		if (folder) {
+			for (const child of folder.GetChildren()) {
 				if (child.IsA("ModuleScript")) {
 					// eslint-disable-next-line @typescript-eslint/no-require-imports
-					const action = require(child) as ActionType;
+					const reqChild = require(child) as ActionType;
 
-					if (this.ActionRegistry.has(action.Name.lower())) {
-						error(`Action with name "${action.Name}" already exists.`);
+					if (this.ActionRegistry.has(reqChild.Name.lower())) {
+						error(`Action with name "${reqChild.Name}" already exists.`);
 					}
-					this.ActionRegistry.set(action.Name.lower(), action);
+					this.ActionRegistry.set(reqChild.Name.lower(), reqChild);
 				}
 			}
-		} else error("Could not find action folder");
+		} else error(`Could not find ${FOLDER_NAME} folder`);
 	}
 
 	Listen(player?: Player) {
@@ -54,14 +54,14 @@ class Action {
 						if (state === Enum.UserInputState.Begin && ClientOnStart) {
 							ClientOnStart(player);
 							try {
-								this.link?.SendToServer(name, action);
+								this.clientLink.SendToServer(name, false);
 							} catch (e) {
 								error(`Failed to send remote event: ${e}`);
 							}
 						} else if (state === Enum.UserInputState.End && ClientOnEnd) {
 							ClientOnEnd(player);
 							try {
-								this.link?.SendToServer(name, action);
+								this.clientLink.SendToServer(name, true);
 							} catch (e) {
 								error(`Failed to send remote event: ${e}`);
 							}
@@ -83,7 +83,7 @@ class Action {
 
 					if (InputMethod === "UserInput" && isGesture && ClientOnStart) {
 						ClientOnStart(player);
-						this.link?.SendToServer(Name);
+						this.clientLink.SendToServer(Name, false);
 					}
 				});
 			});
@@ -97,14 +97,23 @@ class Action {
 						input.KeyCode.Name.lower() === Gesture.Name.lower() ||
 						input.UserInputType.Name.lower() === Gesture.Name.lower();
 
-					if (InputMethod === "UserInput" && ClientOnEnd && isGesture) {
+					if (InputMethod === "UserInput" && isGesture && ClientOnEnd) {
 						ClientOnEnd(player);
-						link.FireServer(Name, true);
+						this.clientLink.SendToServer(Name, true);
 					}
 				});
 			});
 		} else if (RunService.IsServer()) {
-			this.link?.OnServerEvent.Connect(onMessageReceived);
+			this.serverLink.Connect((player: Player, name: string, ended: boolean) => {
+				const action = this.ActionRegistry.get(name);
+				if (action) {
+					if (!ended && action.ServerOnStart) {
+						action.ServerOnStart(player);
+					} else if (ended && action.ServerOnEnd) {
+						action.ServerOnEnd(player);
+					}
+				}
+			});
 		}
 	}
 }
