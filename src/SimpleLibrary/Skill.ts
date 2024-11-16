@@ -37,11 +37,17 @@ class Skill {
 		} else error(`Could not find ${FOLDER_NAME} folder`);
 	}
 
-	Cast(model: Model) {
+	Cast(model: Model, skillName: string) {
 		if (RunService.IsClient()) {
-			// Client-side logic here
+			const skill = this.SkillRegistry.get(skillName.lower());
+			if (skill) {
+				skill.Client(model);
+			} else error(`Skill "${skillName}" not found.`);
 		} else if (RunService.IsServer()) {
-			// Server-side logic here
+			const skill = this.SkillRegistry.get(skillName.lower());
+			if (skill) {
+				skill.Server(model);
+			} else error(`Skill "${skillName}" not found.`);
 		}
 	}
 }
