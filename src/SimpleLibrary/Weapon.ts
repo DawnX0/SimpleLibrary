@@ -9,7 +9,15 @@ export type BaseWeapon = {
 	Jump?: string;
 };
 
-interface MeleeWeaponType extends BaseWeapon {}
+interface MeleeWeaponType extends BaseWeapon {
+	RegularAttack: {
+		Damage: number;
+	};
+
+	HeavyAttack: {
+		Damage: number;
+	};
+}
 
 interface RangedWeaponType extends BaseWeapon {
 	ProjectileSettings: {
@@ -45,7 +53,7 @@ class Weapon {
 			}
 		} else error(`Could not find ${FOLDER_NAME} folder`);
 	}
-/*  */
+
 	Attack() {}
 
 	HeavyAttack() {}

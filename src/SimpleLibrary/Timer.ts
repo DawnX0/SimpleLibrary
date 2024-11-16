@@ -1,3 +1,4 @@
+import { Dumpster } from "@rbxts/dumpster";
 import { generateUID } from "../Utility/GenUID";
 
 export type TimerType = {
@@ -8,12 +9,13 @@ export type TimerType = {
 	IsRunning: boolean;
 	TimerThread: thread | undefined;
 	UID: string;
+	Dumpster: Dumpster;
 
 	Start: () => void;
 	Stop: () => void;
 	Destroy: () => void;
-	OnExpired?<T>(): (arg_0: T) => void;
-	OnTick?<T>(): (arg_0: T) => void;
+	OnExpired?: <T>(arg_0?: T) => void;
+	OnTick?: <T>(arg_0?: T) => void;
 };
 
 class Timer {
@@ -23,9 +25,9 @@ class Timer {
 		Name: string;
 		Duration: number;
 		Tick?: number;
-		OnExpired?<T>(): (arg_0: T) => void;
-		OnTick?<T>(): (arg_0: T) => void;
-	}) {
+		OnExpired?: <T>(arg_0?: T) => void;
+		OnTick?: <T>(arg_0?: T) => void;
+	}): TimerType {
 		const { Name, Duration, Tick, OnExpired, OnTick } = timerData;
 
 		const newTimer: TimerType = {
@@ -36,6 +38,7 @@ class Timer {
 			IsRunning: false,
 			TimerThread: undefined,
 			UID: generateUID(),
+			Dumpster: new Dumpster,
 
 			Start() {
 				if (!this.IsRunning) {
@@ -59,18 +62,23 @@ class Timer {
 					this.TimerThread = undefined;
 				}
 
-				this.OnTick = undefined;
-				this.OnExpired = undefined;
-				this.IsRunning = false;
+				this.Dumpster.burn();
 
 				print(`Timer '${this.Name}' has been destroyed.`);
 			},
 
-			OnExpired: OnExpired,
-			OnTick: OnTick,
+			OnExpired,
+			OnTick,
 		};
 
+		newTimer.Dumpster.dump(() => newTimer.OnTick)
+		newTimer.Dumpster.dump(() => newTimer.OnExpired)
+		newTimer.Dumpster.dump(() => newTimer.Start)
+		newTimer.Dumpster.dump(() => newTimer.Stop)
+
 		this.TimerRegistry.set(newTimer.UID, newTimer);
+
+		return newTimer;
 	}
 
 	Update(timer: TimerType) {
@@ -78,7 +86,7 @@ class Timer {
 			task.wait(timer.Tick);
 			timer.RemainingTime -= 1;
 			if (timer.OnTick) {
-				timer.OnTick();
+				timer.OnTick(timer.RemainingTime);
 			}
 		}
 
