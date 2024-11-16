@@ -38,7 +38,7 @@ class Timer {
 			IsRunning: false,
 			TimerThread: undefined,
 			UID: generateUID(),
-			Dumpster: new Dumpster,
+			Dumpster: new Dumpster(),
 
 			Start() {
 				if (!this.IsRunning) {
@@ -71,10 +71,10 @@ class Timer {
 			OnTick,
 		};
 
-		newTimer.Dumpster.dump(() => newTimer.OnTick)
-		newTimer.Dumpster.dump(() => newTimer.OnExpired)
-		newTimer.Dumpster.dump(() => newTimer.Start)
-		newTimer.Dumpster.dump(() => newTimer.Stop)
+		newTimer.Dumpster.dump(() => newTimer.OnTick);
+		newTimer.Dumpster.dump(() => newTimer.OnExpired);
+		newTimer.Dumpster.dump(() => newTimer.Start);
+		newTimer.Dumpster.dump(() => newTimer.Stop);
 
 		this.TimerRegistry.set(newTimer.UID, newTimer);
 

@@ -10,15 +10,15 @@ export type StatusEffectType = {
 	StatusAttributes?: string[];
 	Modifiers?: Map<string, string>;
 
-    OnExpired: <T>(arg: T) => void;
-    OnTick: <T>(arg: T) => void;
+	OnExpired: <T>(arg: T) => void;
+	OnTick: <T>(arg: T) => void;
 };
 
 const FOLDER_NAME = "StatusEffects";
 
 class StatusEffect {
 	StatusEffectRegistry: Map<string, StatusEffectType> = new Map();
-    AppliedEffectRegistry: Map<string, { [key: string ]: TimerType}> = new Map();
+	AppliedEffectRegistry: Map<string, { [key: string]: TimerType }> = new Map();
 
 	constructor() {
 		this.RegisterStatusEffects();
@@ -41,36 +41,35 @@ class StatusEffect {
 		} else error(`Could not find ${FOLDER_NAME} folder`);
 	}
 
-    ApplyStatusEffect<T>(arg_0: T, UID: string, effectName: string) {
-        if (this.StatusEffectRegistry.has(effectName.lower())) {
-            const effect = this.StatusEffectRegistry.get(effectName.lower())!;
-            
-            const task = Timer.Create({
-                Name: effect.Name,
-                Duration: effect.Duration,
-                Tick: effect.Tick,
-                OnTick: effect.OnTick,
-                OnExpired: effect.OnExpired,
-            })
+	ApplyStatusEffect<T>(arg_0: T, UID: string, effectName: string) {
+		if (this.StatusEffectRegistry.has(effectName.lower())) {
+			const effect = this.StatusEffectRegistry.get(effectName.lower())!;
 
-            const UIDRegistry = this.AppliedEffectRegistry.get(UID) || {};
-            UIDRegistry[UID] = task;
-            this.AppliedEffectRegistry.set(UID, UIDRegistry);
+			const task = Timer.Create({
+				Name: effect.Name,
+				Duration: effect.Duration,
+				Tick: effect.Tick,
+				OnTick: effect.OnTick,
+				OnExpired: effect.OnExpired,
+			});
 
-            task.Start();
+			const UIDRegistry = this.AppliedEffectRegistry.get(UID) || {};
+			UIDRegistry[UID] = task;
+			this.AppliedEffectRegistry.set(UID, UIDRegistry);
 
-        } else error(`Could not find status effect "${effectName}"`);
-    }
+			task.Start();
+		} else error(`Could not find status effect "${effectName}"`);
+	}
 
-    RemoveStatusEffect(UID: string, effectName: string) {
-        if (this.AppliedEffectRegistry.has(UID)) {
-            const UIDRegistry = this.AppliedEffectRegistry.get(UID)!;
-            if (UIDRegistry[effectName]) {
-                UIDRegistry[effectName].Destroy();
-                delete UIDRegistry[effectName];
-            }
-        } else error(`No status effects applied to player "${UID}"`);
-    }
+	RemoveStatusEffect(UID: string, effectName: string) {
+		if (this.AppliedEffectRegistry.has(UID)) {
+			const UIDRegistry = this.AppliedEffectRegistry.get(UID)!;
+			if (UIDRegistry[effectName]) {
+				UIDRegistry[effectName].Destroy();
+				delete UIDRegistry[effectName];
+			}
+		} else error(`No status effects applied to player "${UID}"`);
+	}
 }
 
 export default new StatusEffect();
