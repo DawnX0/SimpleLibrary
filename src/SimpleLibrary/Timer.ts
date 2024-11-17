@@ -1,5 +1,6 @@
 import { Dumpster } from "@rbxts/dumpster";
 import { generateUID } from "../Utility/GenUID";
+import Signal from "@rbxts/signal";
 
 export type TimerType = {
 	Name: string;
@@ -8,14 +9,23 @@ export type TimerType = {
 	RemainingTime: number;
 	IsRunning: boolean;
 	TimerThread: thread | undefined;
+	State: string;
 	UID: string;
 	Dumpster: Dumpster;
+	Signal: Signal<(state: string) => void>;
 
 	Start: () => void;
 	Stop: () => void;
-	Destroy: () => void;
+	Destroy(): void;
 	OnExpired?: <T>(arg_0?: T) => void;
 	OnTick?: <T>(arg_0?: T) => void;
+};
+
+export const TimerState = {
+	INACTIVE: "Inactive",
+	RUNNING: "Running",
+	STOPPED: "Stopped",
+	DESTROYED: "Destroyed",
 };
 
 class Timer {
@@ -37,22 +47,33 @@ class Timer {
 			RemainingTime: Duration,
 			IsRunning: false,
 			TimerThread: undefined,
+			State: TimerState.INACTIVE,
 			UID: generateUID(),
 			Dumpster: new Dumpster(),
+			Signal: new Signal(),
 
-			Start() {
-				if (!this.IsRunning) {
-					this.IsRunning = true;
+			Start: () => {
+				if (!newTimer.IsRunning) {
+					newTimer.IsRunning = true;
+					newTimer.State = TimerState.RUNNING;
+					newTimer.Signal.Fire(newTimer.State);
+					newTimer.TimerThread = task.spawn(() => {
+						this.Update(newTimer);
+					});
 				} else warn("Already started");
 			},
 
-			Stop() {
-				if (this.IsRunning) {
-					this.IsRunning = false;
+			Stop: () => {
+				if (newTimer.IsRunning) {
+					newTimer.IsRunning = false;
+					newTimer.State = TimerState.STOPPED;
+					newTimer.Signal.Fire(newTimer.State);
 				} else warn("Already stopped");
 			},
 
 			Destroy() {
+				if (this.State === TimerState.DESTROYED) return;
+
 				if (this.IsRunning) {
 					this.Stop();
 				}
@@ -61,6 +82,9 @@ class Timer {
 					task.cancel(this.TimerThread);
 					this.TimerThread = undefined;
 				}
+
+				newTimer.State = TimerState.DESTROYED;
+				newTimer.Signal.Fire(newTimer.State);
 
 				this.Dumpster.burn();
 
@@ -75,6 +99,7 @@ class Timer {
 		newTimer.Dumpster.dump(() => newTimer.OnExpired);
 		newTimer.Dumpster.dump(() => newTimer.Start);
 		newTimer.Dumpster.dump(() => newTimer.Stop);
+		newTimer.Dumpster.dump(newTimer.Signal);
 
 		this.TimerRegistry.set(newTimer.UID, newTimer);
 
@@ -84,10 +109,16 @@ class Timer {
 	Update(timer: TimerType) {
 		while (timer.RemainingTime > 0 && timer.IsRunning) {
 			task.wait(timer.Tick);
-			timer.RemainingTime -= 1;
+			timer.RemainingTime -= timer.Tick;
+
 			if (timer.OnTick) {
 				timer.OnTick(timer.RemainingTime);
 			}
+		}
+
+		// Call OnExpired once the timer runs out
+		if (timer.RemainingTime <= 0 && timer.OnExpired) {
+			timer.OnExpired();
 		}
 
 		if (timer.RemainingTime <= 0) {

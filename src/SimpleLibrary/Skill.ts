@@ -28,26 +28,35 @@ class Skill {
 					// eslint-disable-next-line @typescript-eslint/no-require-imports
 					const reqChild = require(child) as SkillType;
 
-					if (this.SkillRegistry.has(reqChild.Name.lower())) {
-						error(`Action with name "${reqChild.Name}" already exists.`);
+					try {
+						if (this.SkillRegistry.get(reqChild.Name.lower())) {
+							error(`"${reqChild.Name}" already exists.`);
+						}
+						this.SkillRegistry.set(reqChild.Name.lower(), reqChild);
+					} catch (e) {
+						warn(`code execution stopped: ${child.Name} is an empty file found in ${FOLDER_NAME}`);
+						return;
 					}
-					this.SkillRegistry.set(reqChild.Name.lower(), reqChild);
 				}
 			}
 		} else error(`Could not find ${FOLDER_NAME} folder`);
 	}
 
 	Cast(model: Model, skillName: string) {
+		const skill = this.SkillRegistry.get(skillName.lower());
+
+		if (!skill) {
+			error(`Skill "${skillName}" not found.`);
+			return;
+		}
+
 		if (RunService.IsClient()) {
-			const skill = this.SkillRegistry.get(skillName.lower());
-			if (skill) {
-				skill.Client(model);
-			} else error(`Skill "${skillName}" not found.`);
+			skill.Client(model);
 		} else if (RunService.IsServer()) {
-			const skill = this.SkillRegistry.get(skillName.lower());
-			if (skill) {
-				skill.Server(model);
-			} else error(`Skill "${skillName}" not found.`);
+			model.SetAttribute(skill.Name.lower(), true);
+			task.delay(skill.Cooldown, () => model.SetAttribute(skill.Name.lower(), false));
+
+			skill.Server(model);
 		}
 	}
 }
