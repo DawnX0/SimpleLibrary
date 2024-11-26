@@ -1,148 +1,59 @@
-import Object from "@rbxts/object-utils";
-import { Players, ReplicatedStorage, RunService } from "@rbxts/services";
-import { GetAnimator } from "../Utility/GetAnimator";
-import { PlayAnimation } from "../Utility/Animation";
-import { CheckAttributes } from "../Utility/CheckAttributes";
+import { ReplicatedStorage, RunService } from "@rbxts/services";
 import Remotes from "./Remotes";
 import { ServerListenerEvent } from "@rbxts/net/out/server/ServerEvent";
-import { SimpleKnockback } from "../Utility/SimpleKnockback";
+import Object from "@rbxts/object-utils";
+import { PlayAnimation } from "../Utility/Animation";
 
-type BaseWeapon = {
+export type BaseWeapon = {
 	Name: string;
-	WeaponType: "Melee" | "Ranged";
 
-	Markers?: Map<string, (model: Model) => void>;
+	Idle: string;
+	Walk: string;
+	Jump: string;
+	Holster: string;
 
-	Idle?: string;
-	Walk?: string;
-	Jump?: string;
+	BasicATKConfig: {
+		Animations: { [key: number]: string };
+		HitReactions: { [key: number]: string };
+		Priority?: Enum.AnimationPriority;
+		Speed?: number;
+		Fade?: number;
 
-	AttackSettings: {
-		AdditionalAttributes?: Map<string, number>;
 		Restrictions?: string[];
-
-		ComboAnimations: { [key: number]: string };
-		HitReaction?: { [key: number]: string };
-		AnimationPriority?: Enum.AnimationPriority;
-		AnimationSpeed?: number;
-
-		KnockbackForce?: number;
-		KnockbackDuration?: number;
-		HitSize: Vector3;
-		Range: number;
-		Damage: number;
-		ComboReset: number;
-		Endlag: number;
-		Cooldown: number;
-		SlowSpeed?: number;
+		AdditionalAttributes?: string[];
+		Markers?: Map<string, (model: Model) => void>;
 	};
 
-	HeavyAttackSettings: {
-		AdditionalAttributes?: Map<string, number>;
-		Restrictions?: string[];
-
+	HeavyATKConfig: {
 		Animation: string;
 		HitReaction?: string;
+		Priority?: Enum.AnimationPriority;
+		Speed?: number;
+		Fade?: number;
 
-		KnockbackForce?: number;
-		KnockbackDuration?: number;
-		HitSize: Vector3;
-		Range: number;
-		Damage: number;
-		Endlag: number;
-		Cooldown: number;
-		Slow?: number;
-	};
-
-	ModelSettings?: {
-		Model: Model;
-		HolsterPosition: "back" | "lefthip" | "righthip";
+		Restrictions?: string[];
+		AdditionalAttributes?: string[];
+		Markers?: Map<string, (model: Model) => void>;
 	};
 };
-
-export type MeleeWeaponType = {} & BaseWeapon;
-
-export type RangedWeaponType = {
-	ReloadSettings: {
-		Animation: string;
-
-		Magazine: number;
-		MagazineSize: number;
-	};
-
-	ProjectileSettings: {
-		Model: Model;
-		Speed: number;
-		Lifetime: number;
-		Falloff: number;
-		HitSize: Vector3;
-		Damage?: number;
-	};
-} & BaseWeapon;
 
 const FOLDER_NAME = "Weapons";
 const ANIMATE_NAME = "Animate";
-export const WEAPON_ATTRIBUTE = "Weapon";
-export const COMBO_ATTRIBUTE = "Combo";
-export const COOLDOWN_ATTRIBUTE = "WeaponCooldown";
-export const ATTACKING_ATTRIBUTE = "Attacking";
-const ATTACK_ANIMATION_NAME = "attack";
-const SYNCHRONIZAITON_RATE = 0.05;
-
-export const HitboxPresets = {
-	normal: {
-		hitbox: (model: Model) => {},
-	},
-	advanced: {
-		hitbox: (model: Model) => {},
-	},
+const DEFAULT_IDS = {
+	Idle: "http://www.roblox.com/asset/?id=180435571",
+	Walk: "http://www.roblox.com/asset/?id=180426354",
+	Jump: "http://www.roblox.com/asset/?id=180435571",
 };
+export const WEAPON_ATTRIBUTE = "Weapon";
+export const EQUIPPED_ATTRIBUTE = "Equipped";
 
 class Weapon {
-	WeaponRegistry: Map<string, MeleeWeaponType | RangedWeaponType> = new Map();
-	markerLink: ServerListenerEvent<[string]> | undefined = RunService.IsServer()
-		? Remotes.Server.Get("MarkerLink")
-		: undefined;
+	WeaponRegistry: Map<string, BaseWeapon> = new Map();
+	MarkerLink: ServerListenerEvent<[string]> = Remotes.Server.Get("MarkerLink");
+	WeaponLink = Remotes.Server.Get("WeaponLink");
 
 	constructor() {
 		this.RegisterWeapons();
-
-		if (RunService.IsServer()) {
-			this.markerLink!.Connect((player: Player, markerName: string) => {
-				const weaponName = player.Character?.GetAttribute(WEAPON_ATTRIBUTE.lower()) as string | undefined;
-				if (weaponName && player.Character) {
-					const weapon = this.WeaponRegistry.get(weaponName);
-					if (weapon) {
-						if (weapon.Markers) {
-							const callback = weapon.Markers.get(markerName);
-							if (callback) {
-								callback(player.Character);
-							}
-						}
-					} else error("Weapon not found: " + weaponName);
-				} else error("No weapon assigned to character");
-			});
-		} else if (RunService.IsClient()) {
-			Remotes.Client.Get("KnockbackLink").Connect((model, force, direction, duration) => {
-				SimpleKnockback(model, force, direction, duration);
-			});
-
-			Remotes.Client.Get("WeaponLink").Connect((model, combo) => {
-				const weaponName = model.GetAttribute(WEAPON_ATTRIBUTE.lower()) as string;
-				const weapon = this.WeaponRegistry.get(weaponName);
-				const animationId = weapon?.AttackSettings.ComboAnimations[combo];
-				if (!animationId) error("Couldn't find animation");
-
-				PlayAnimation(
-					model,
-					animationId,
-					ATTACK_ANIMATION_NAME,
-					weapon?.AttackSettings.AnimationPriority,
-					weapon?.AttackSettings.AnimationSpeed,
-					weapon?.Markers,
-				);
-			});
-		}
 	}
 
 	RegisterWeapons() {
@@ -151,7 +62,7 @@ class Weapon {
 			for (const child of folder.GetChildren()) {
 				if (child.IsA("ModuleScript")) {
 					// eslint-disable-next-line @typescript-eslint/no-require-imports
-					const reqChild = require(child) as MeleeWeaponType | RangedWeaponType;
+					const reqChild = require(child) as BaseWeapon;
 
 					try {
 						if (this.WeaponRegistry.get(reqChild.Name.lower())) {
@@ -167,16 +78,36 @@ class Weapon {
 		} else error(`Could not find ${FOLDER_NAME} folder`);
 	}
 
-	AssignWeapon(model: Model, weaponName: string, bounded?: boolean) {
-		const weapon = this.WeaponRegistry.get(weaponName.lower()) as MeleeWeaponType | RangedWeaponType;
+	AssignWeapon(model: Model, weaponName: string) {
+		const weapon = this.WeaponRegistry.get(weaponName.lower());
+
 		if (!weapon) {
 			error(`Weapon "${weaponName}" not found.`);
 		}
 
-		const handleAnimationChange = () => {
-			const animator = GetAnimator(model);
-			const animate = model.FindFirstChild(ANIMATE_NAME) as LocalScript;
-			if (animator && animate) {
+		model.SetAttribute(WEAPON_ATTRIBUTE, weapon.Name.lower());
+		model.SetAttribute(EQUIPPED_ATTRIBUTE, false);
+	}
+
+	UnassignWeapon(model: Model) {
+		model.SetAttribute(WEAPON_ATTRIBUTE, undefined);
+	}
+
+	Equip(model: Model) {
+		const assignedWeapon = model.GetAttribute(WEAPON_ATTRIBUTE) as string | undefined;
+		if (!assignedWeapon) error("Weapon not assigned to: " + model.Name);
+
+		const weapon = this.WeaponRegistry.get(assignedWeapon);
+		if (!weapon) error("Weapon not found in registry: " + assignedWeapon);
+
+		const humanoid = model.FindFirstChildWhichIsA("Humanoid");
+		if (!humanoid) error("Humanoid not found in: " + model.Name);
+
+		const animate = model.FindFirstChild(ANIMATE_NAME, true);
+		if (!animate) error("Animate script not found in: " + model.Name);
+
+		const switchAnimations = (weapon?: BaseWeapon) => {
+			if (weapon) {
 				for (const [animType, animId] of Object.entries({
 					Idle: weapon.Idle,
 					Walk: weapon.Walk,
@@ -186,104 +117,42 @@ class Weapon {
 					const animation = action?.FindFirstChildWhichIsA("Animation");
 					if (animation) animation.AnimationId = animId || animation.AnimationId;
 				}
+			} else {
+				for (const [animType, animId] of Object.entries({
+					Idle: DEFAULT_IDS.Idle,
+					Walk: DEFAULT_IDS.Walk,
+					Jump: DEFAULT_IDS.Jump,
+				})) {
+					const action = animate.FindFirstChild(animType.lower()) as ObjectValue;
+					const animation = action?.FindFirstChildWhichIsA("Animation");
+					if (animation) animation.AnimationId = animId || animation.AnimationId;
+				}
 			}
 		};
 
-		handleAnimationChange();
-		model.SetAttribute(WEAPON_ATTRIBUTE.lower(), weapon.Name.lower());
-		model.SetAttribute(COMBO_ATTRIBUTE.lower(), 1);
+		const weaponEquipped = model.GetAttribute(EQUIPPED_ATTRIBUTE) as boolean;
+		if (!weaponEquipped) {
+			model.SetAttribute(EQUIPPED_ATTRIBUTE, true);
+			PlayAnimation(model, weapon.Holster, "holster");
 
-		if (bounded) {
-			const humanoid = model.FindFirstChildWhichIsA("Humanoid");
-			humanoid!.Died.Once(() => {
-				handleAnimationChange();
-			});
+			switchAnimations(weapon);
+
+			humanoid.ChangeState(Enum.HumanoidStateType.None);
+			humanoid.ChangeState(Enum.HumanoidStateType.Running);
+		} else if (weaponEquipped) {
+			model.SetAttribute(EQUIPPED_ATTRIBUTE, false);
+			PlayAnimation(model, weapon.Holster, "holster", undefined, -1);
+
+			switchAnimations();
+
+			humanoid.ChangeState(Enum.HumanoidStateType.None);
+			humanoid.ChangeState(Enum.HumanoidStateType.Running);
 		}
 	}
 
-	Attack(model: Model) {
-		const currentWeapon = model.GetAttribute(WEAPON_ATTRIBUTE.lower()) as string | undefined;
-		if (!currentWeapon) return;
+	BasicATK(model: Model) {}
 
-		const weapon = this.WeaponRegistry.get(currentWeapon.lower());
-		if (weapon) {
-			const Restrictions: string[] = weapon.AttackSettings.Restrictions
-				? (() => {
-						const result: string[] = weapon.AttackSettings.Restrictions!;
-						result.push(ATTACKING_ATTRIBUTE, COOLDOWN_ATTRIBUTE);
-						return result;
-					})()
-				: [ATTACKING_ATTRIBUTE, COOLDOWN_ATTRIBUTE];
-
-			if (weapon.WeaponType === "Melee") {
-				if (RunService.IsServer()) {
-					if (CheckAttributes(model, Restrictions)) {
-						return;
-					}
-
-					const player = Players.GetPlayerFromCharacter(model);
-					if (player) {
-						Remotes.Server.Get("WeaponLink").SendToPlayer(
-							player,
-							model,
-							model.GetAttribute(COMBO_ATTRIBUTE.lower()) as number,
-						);
-					}
-
-					task.wait(SYNCHRONIZAITON_RATE);
-
-					const setAttributeWithTimeout = (attribute: string, duration: number) => {
-						model.SetAttribute(attribute.lower(), true);
-						const timeoutTask = task.delay(duration, () => model.SetAttribute(attribute, undefined));
-						model.GetAttributeChangedSignal(attribute).Once(() => task.cancel(timeoutTask));
-					};
-
-					const humanoid = model.FindFirstChildWhichIsA("Humanoid");
-					if (!humanoid) error("No humanoid found in" + model.Name);
-
-					if (weapon.AttackSettings.SlowSpeed) {
-						humanoid.WalkSpeed = weapon.AttackSettings.SlowSpeed;
-					}
-
-					model.SetAttribute(ATTACKING_ATTRIBUTE.lower(), true);
-					const timeoutTask = task.delay(weapon.AttackSettings.Endlag, () => {
-						model.SetAttribute(ATTACKING_ATTRIBUTE.lower(), undefined);
-						humanoid.WalkSpeed = 16;
-					});
-					model.GetAttributeChangedSignal(ATTACKING_ATTRIBUTE.lower()).Once(() => task.cancel(timeoutTask));
-
-					if (weapon.AttackSettings.AdditionalAttributes) {
-						weapon.AttackSettings.AdditionalAttributes.forEach((duration, attribute) => {
-							setAttributeWithTimeout(attribute.lower(), duration);
-						});
-					}
-
-					const currentCombo = (model.GetAttribute(COMBO_ATTRIBUTE.lower()) as number) || 0;
-					const comboAnimationsCount = Object.keys(weapon.AttackSettings.ComboAnimations).size();
-
-					if (currentCombo < comboAnimationsCount) {
-						model.SetAttribute(COMBO_ATTRIBUTE.lower(), currentCombo + 1);
-					} else {
-						model.SetAttribute(COMBO_ATTRIBUTE.lower(), 1);
-
-						setAttributeWithTimeout(COOLDOWN_ATTRIBUTE.lower(), weapon.AttackSettings.Cooldown);
-					}
-
-					const resetComboTask = task.delay(weapon.AttackSettings.ComboReset, () => {
-						model.SetAttribute(COMBO_ATTRIBUTE.lower(), 1);
-					});
-
-					model.GetAttributeChangedSignal(COMBO_ATTRIBUTE.lower()).Once(() => task.cancel(resetComboTask));
-				}
-			} else if (weapon.WeaponType === "Ranged") {
-				if (RunService.IsClient()) {
-					print("Client: Attack");
-				} else if (RunService.IsServer()) {
-					print("Server: Attack");
-				}
-			}
-		}
-	}
+	HeavyATK(model: Model) {}
 }
 
 export default new Weapon();

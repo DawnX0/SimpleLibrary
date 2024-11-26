@@ -83,14 +83,14 @@ class Action {
 				if (InputMethod === "ContextAction") {
 					const wrap = (actionName: string, state: Enum.UserInputState, inputObject: InputObject) => {
 						if (state === Enum.UserInputState.Begin && ClientOnStart) {
-							ClientOnStart(player);
+							if (ClientOnStart) ClientOnStart(player);
 							try {
 								this.clientLink!.SendToServer(name, false);
 							} catch (e) {
 								error(`Failed to send remote event: ${e}`);
 							}
 						} else if (state === Enum.UserInputState.End && ClientOnEnd) {
-							ClientOnEnd(player);
+							if (ClientOnEnd) ClientOnEnd(player);
 							try {
 								this.clientLink!.SendToServer(name, true);
 							} catch (e) {
@@ -127,7 +127,7 @@ class Action {
 							const doubleTapThreshold = DoubleTapThreshold || this.defaultDoubleTapThreshold;
 
 							if (tick() - lastTapTime <= doubleTapThreshold) {
-								ClientOnStart(player);
+								if (ClientOnStart) ClientOnStart(player);
 								this.clientLink!.SendToServer(Name, false);
 								this.doubleTapped!.set(player.Name + Name, true);
 								return;
@@ -135,7 +135,7 @@ class Action {
 
 							this.lastTapTime!.set(player.Name + Name, tick());
 						} else {
-							ClientOnStart(player);
+							if (ClientOnStart) ClientOnStart(player);
 							this.clientLink!.SendToServer(Name, false);
 						}
 					}
@@ -157,11 +157,11 @@ class Action {
 					if (InputMethod === "UserInput" && isGesture && ClientOnEnd) {
 						const doubleTapped = this.doubleTapped!.get(player.Name + Name);
 						if (DoubleTap && doubleTapped === true) {
-							ClientOnEnd(player);
+							if (ClientOnEnd) ClientOnEnd(player);
 							this.clientLink!.SendToServer(Name, true);
 							this.doubleTapped!.delete(player.Name + Name);
 						} else {
-							ClientOnEnd(player);
+							if (ClientOnEnd) ClientOnEnd(player);
 							this.clientLink!.SendToServer(Name, true);
 						}
 					}

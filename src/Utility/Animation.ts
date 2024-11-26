@@ -49,7 +49,7 @@ export function PlayAnimation(
 
 export function StopAnimation(animator: Animator, name: string) {
 	animator.GetPlayingAnimationTracks().forEach((track) => {
-		if (track.Name === name) {
+		if (track.Name.lower() === name.lower()) {
 			track.Stop();
 		}
 	});

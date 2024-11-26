@@ -5,16 +5,16 @@ import { GetAnimator } from "./GetAnimator";
 import { SimpleApplySE } from "./SimpleApplySE";
 import { SimpleCastSkill } from "./SimpleCastSkill";
 import { SimpleRemoveSE } from "./SimpleRemoveSE";
-import { SimpleAssignWeapon } from "./SimpleAssignWeapon";
-import { SimpleAttack } from "./SimpleAttack";
 import { CheckAttributes } from "./CheckAttributes";
 import { SimpleKnockback } from "./SimpleKnockback";
+import { SimpleEquip } from "./SimpleEquip";
+import { SimpleAssignWeapon } from "./SimpleAssignWeapon";
 
 export default {
 	SimpleCastSkill,
-	SimpleAttack,
-	SimpleAssignWeapon,
 	SimpleKnockback,
+	SimpleEquip,
+	SimpleAssignWeapon,
 	SimpleListen,
 	SimpleApplySE,
 	SimpleRemoveSE,
