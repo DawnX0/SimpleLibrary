@@ -2,7 +2,7 @@ import { ContextActionService, ReplicatedStorage, RunService, UserInputService }
 import Remotes from "./Remotes";
 import { ClientSenderEvent } from "@rbxts/net/out/client/ClientEvent";
 import { ServerListenerEvent } from "@rbxts/net/out/server/ServerEvent";
-import { CheckAttributes } from "../Utility/CheckAttributes";
+import { CheckAttributes } from "../Utility/SimpleMiscFunctions";
 
 export type ActionType = {
 	Name: string;
@@ -16,7 +16,7 @@ export type ActionType = {
 	DoubleTap?: boolean;
 	DoubleTapThreshold?: number;
 	Throttle?: number;
-	Restricitons?: string[];
+	Restrictions?: string[];
 };
 
 const FOLDER_NAME = "Actions";
@@ -71,9 +71,9 @@ class Action {
 			if (!player) error("Listen on client side must have the player passed.");
 
 			this.ActionRegistry.forEach((action, name) => {
-				const { Name, Gesture, InputMethod, ClientOnStart, ClientOnEnd, TouchButton, Restricitons } = action;
+				const { Name, Gesture, InputMethod, ClientOnStart, ClientOnEnd, TouchButton, Restrictions } = action;
 
-				if (Restricitons && player.Character && CheckAttributes(player.Character, Restricitons)) {
+				if (Restrictions && player.Character && CheckAttributes(player.Character, Restrictions)) {
 					print("restricted");
 					return;
 				}
@@ -82,14 +82,14 @@ class Action {
 
 				if (InputMethod === "ContextAction") {
 					const wrap = (actionName: string, state: Enum.UserInputState, inputObject: InputObject) => {
-						if (state === Enum.UserInputState.Begin && ClientOnStart) {
+						if (state === Enum.UserInputState.Begin) {
 							if (ClientOnStart) ClientOnStart(player);
 							try {
 								this.clientLink!.SendToServer(name, false);
 							} catch (e) {
 								error(`Failed to send remote event: ${e}`);
 							}
-						} else if (state === Enum.UserInputState.End && ClientOnEnd) {
+						} else if (state === Enum.UserInputState.End) {
 							if (ClientOnEnd) ClientOnEnd(player);
 							try {
 								this.clientLink!.SendToServer(name, true);
@@ -107,10 +107,10 @@ class Action {
 				if (gameProcessed) return;
 
 				this.ActionRegistry.forEach((action) => {
-					const { Name, InputMethod, Gesture, ClientOnStart, DoubleTap, DoubleTapThreshold, Restricitons } =
+					const { Name, InputMethod, Gesture, ClientOnStart, DoubleTap, DoubleTapThreshold, Restrictions } =
 						action;
 
-					if (Restricitons && player.Character && CheckAttributes(player.Character, Restricitons)) {
+					if (Restrictions && player.Character && CheckAttributes(player.Character, Restrictions)) {
 						print("restricted");
 						return;
 					}
@@ -121,7 +121,7 @@ class Action {
 						input.KeyCode.Name.lower() === Gesture.Name.lower() ||
 						input.UserInputType.Name.lower() === Gesture.Name.lower();
 
-					if (InputMethod === "UserInput" && isGesture && ClientOnStart) {
+					if (InputMethod === "UserInput" && isGesture) {
 						if (DoubleTap) {
 							const lastTapTime = this.lastTapTime!.get(player.Name + Name) || 0;
 							const doubleTapThreshold = DoubleTapThreshold || this.defaultDoubleTapThreshold;
@@ -154,7 +154,7 @@ class Action {
 						input.KeyCode.Name.lower() === Gesture.Name.lower() ||
 						input.UserInputType.Name.lower() === Gesture.Name.lower();
 
-					if (InputMethod === "UserInput" && isGesture && ClientOnEnd) {
+					if (InputMethod === "UserInput" && isGesture) {
 						const doubleTapped = this.doubleTapped!.get(player.Name + Name);
 						if (DoubleTap && doubleTapped === true) {
 							if (ClientOnEnd) ClientOnEnd(player);
@@ -171,6 +171,15 @@ class Action {
 			this.serverLink!.Connect((player: Player, name: string, ended: boolean) => {
 				const action = this.ActionRegistry.get(name.lower());
 				if (action) {
+					if (
+						action.Restrictions &&
+						player.Character &&
+						CheckAttributes(player.Character, action.Restrictions)
+					) {
+						print("restricted");
+						return;
+					}
+
 					if (!ended && action.ServerOnStart) {
 						action.ServerOnStart(player);
 					} else if (ended && action.ServerOnEnd) {

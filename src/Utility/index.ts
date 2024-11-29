@@ -1,26 +1,43 @@
-import { SimpleListen } from "./SimpleListen";
-import { PlayAnimation, StopAnimation } from "./Animation";
-import { generateUID } from "./GenUID";
-import { GetAnimator } from "./GetAnimator";
-import { SimpleApplySE } from "./SimpleApplySE";
-import { SimpleCastSkill } from "./SimpleCastSkill";
-import { SimpleRemoveSE } from "./SimpleRemoveSE";
-import { CheckAttributes } from "./CheckAttributes";
+import { SimpleAssignWeapon, SimpleBasicATK, SimpleBlock, SimpleEquip, SimpleHeavyATK } from "./SimpleWeaponFunctions";
+import { SimpleCastSkill } from "./SimpleSkillFunctions";
+import { SimpleApplySE, SimpleRemoveSE } from "./SimpleSEFunctions";
 import { SimpleKnockback } from "./SimpleKnockback";
-import { SimpleEquip } from "./SimpleEquip";
-import { SimpleAssignWeapon } from "./SimpleAssignWeapon";
+import {
+	CheckAttributes,
+	GenerateUID,
+	GetAnimator,
+	PlayAnimation,
+	PlaySound,
+	StopAllAnimations,
+	StopAnimation,
+	StopSound,
+} from "./SimpleMiscFunctions";
 
 export default {
-	SimpleCastSkill,
-	SimpleKnockback,
-	SimpleEquip,
-	SimpleAssignWeapon,
-	SimpleListen,
-	SimpleApplySE,
-	SimpleRemoveSE,
+	// Animation
 	PlayAnimation,
 	StopAnimation,
-	generateUID,
+	StopAllAnimations,
+
+	// Weapon
+	SimpleAssignWeapon,
+	SimpleEquip,
+	SimpleBasicATK,
+	SimpleHeavyATK,
+	SimpleBlock,
+
+	// Status Effect
+	SimpleRemoveSE,
+	SimpleApplySE,
+
+	// Skill
+	SimpleCastSkill,
+
+	// Misc
+	GenerateUID,
 	GetAnimator,
 	CheckAttributes,
+	SimpleKnockback,
+	PlaySound,
+	StopSound,
 };

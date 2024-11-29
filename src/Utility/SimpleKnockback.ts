@@ -1,43 +1,21 @@
-import { Players, RunService } from "@rbxts/services";
-import Remotes from "../SimpleLibrary/Remotes";
+import { RunService, TweenService } from "@rbxts/services";
 
-const REPLICATION_RANGE = 30;
+export type KnockbackData = {
+	hitModel: Model;
+	direction: Vector3;
+	duration: number;
+	force: number;
+};
 
-export function SimpleKnockback(model: Model, direction: Vector3, force: number, duration: number) {
-	const rootpart = model.FindFirstChild("HumanoidRootPart") as BasePart | undefined;
-	if (!rootpart) error("No root part found");
-
+export function SimpleKnockback(hitModel: Model, direction: Vector3, duration: number, force: number) {
 	if (RunService.IsServer()) {
-		const exemptPlayers: Player[] = [];
+		const rootPart = hitModel.FindFirstChild("HumanoidRootPart") as BasePart;
+		if (!rootPart) return;
 
-		// Loop through all players and check their distance from the target model
-		Players.GetPlayers().forEach((playerInList: Player) => {
-			const playerChar = playerInList.Character;
-			if (playerChar && playerChar.PrimaryPart) {
-				// Calculate the distance from the player's PrimaryPart to the target model's PrimaryPart
-				const distance = playerChar.PrimaryPart.Position.sub(rootpart.Position).Magnitude;
+		TweenService.Create(rootPart, new TweenInfo(duration, Enum.EasingStyle.Quad), {
+			AssemblyLinearVelocity: direction.mul(force),
+		}).Play();
 
-				// If the distance is greater than the replication range, add to exemptPlayers
-				if (distance > REPLICATION_RANGE) {
-					exemptPlayers.push(playerInList);
-				}
-			}
-		});
-
-		Remotes.Server.Get("KnockbackLink").SendToAllPlayersExcept(exemptPlayers, model, direction, force, duration);
-	} else if (RunService.IsClient()) {
-		const startTime = tick();
-
-		// Knockback effect
-		const connection = game.GetService("RunService").RenderStepped.Connect((deltaTime) => {
-			const elapsedTime = tick() - startTime;
-
-			if (elapsedTime >= duration) {
-				connection.Disconnect();
-				return;
-			}
-
-			rootpart.AssemblyLinearVelocity = direction.mul(force);
-		});
+		// rootPart.AssemblyLinearVelocity = direction.mul(force);
 	}
 }

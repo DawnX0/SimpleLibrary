@@ -1,6 +1,6 @@
 import { Dumpster } from "@rbxts/dumpster";
-import { generateUID } from "../Utility/GenUID";
 import Signal from "@rbxts/signal";
+import { GenerateUID } from "../Utility/SimpleMiscFunctions";
 
 export type TimerType = {
 	Name: string;
@@ -48,7 +48,7 @@ class Timer {
 			IsRunning: false,
 			TimerThread: undefined,
 			State: TimerState.INACTIVE,
-			UID: generateUID(),
+			UID: GenerateUID(),
 			Dumpster: new Dumpster(),
 			Signal: new Signal(),
 
